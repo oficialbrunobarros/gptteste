@@ -3,10 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <title>Chatbot</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #bp-web-widget {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
 </head>
 <body>
     <!-- Seu script do Botpress -->
     <script src="https://cdn.botpress.cloud/webchat/v1/inject.js"></script>
+    <script>
+        window.botpressWebChat.init({
+            host: 'https://cdn.botpress.cloud',
+            botId: 'your-bot-id',
+            // Adicione opções adicionais aqui para ajustar a exibição
+        });
+
+        // Garantir que o chatbot ocupe a tela toda
+        document.addEventListener('DOMContentLoaded', function() {
+            const webchat = document.querySelector('#bp-web-widget');
+            if (webchat) {
+                webchat.style.width = '100%';
+                webchat.style.height = '100vh'; // 100% da altura da viewport
+            }
+        });
+    </script>
     <script src="https://mediafiles.botpress.cloud/9f46a933-42da-4c3d-b107-c6d3b194f683/webchat/config.js" defer></script>
 </body>
 </html>
