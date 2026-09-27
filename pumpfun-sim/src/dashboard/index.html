@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pump.fun Sim</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: dark; --bg:#121211; --surface:#1a1a19; --border:#2b2b29; --text:#f3f2ee; --muted:#c3c2b7; --dim:#8a897f;
+          --series:#3987e5; --good:#199e70; --bad:#e66767; --warn:#c98500; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; padding:16px; }
+  h1 { font-size:18px; margin:0 0 4px; font-weight:600; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--dim); margin:24px 0 8px; font-weight:600; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .tile { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+  .tile .k { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .tile .v { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .tile .s { color:var(--muted); font-size:11px; }
+  .pos { color:var(--good); } .neg { color:var(--bad); } .warn { color:var(--warn); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; } @media (max-width:900px){ .grid2{grid-template-columns:1fr;} }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 14px; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; font-variant-numeric:tabular-nums; }
+  th { text-align:left; color:var(--dim); font-weight:500; border-bottom:1px solid var(--border); padding:6px 8px; white-space:nowrap; }
+  td { padding:5px 8px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td.num, th.num { text-align:right; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:99px; font-size:11px; border:1px solid var(--border); color:var(--muted); }
+  .pill.on { border-color:var(--good); color:var(--good); } .pill.off { border-color:var(--bad); color:var(--bad); }
+  .chart { height:260px; }
+  .events li { color:var(--muted); font-size:12px; margin:2px 0; } .events code { color:var(--dim); font-size:11px; }
+  .rej { display:flex; flex-wrap:wrap; gap:6px; } .rej span { background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-size:12px; color:var(--muted); }
+  .muted { color:var(--dim); }
+</style>
+</head>
+<body>
+<h1>Simulador de scalping · Pump.fun <span id="mode" class="pill"></span> <span id="feed" class="pill"></span> <span id="jev" class="pill"></span></h1>
+<div class="sub">Paper trading. Nenhuma ordem vai à blockchain. Atualiza a cada 3 s · <span id="ts" class="muted"></span></div>
+
+<div class="tiles" id="tiles"></div>
+
+<h2>Curva de patrimônio (SOL)</h2>
+<div class="card"><div class="chart"><canvas id="eq"></canvas></div></div>
+
+<div class="grid2">
+  <div>
+    <h2>Posições abertas</h2>
+    <div class="card"><table id="open"><thead><tr><th>#</th><th>Moeda</th><th class="num">Gasto (SOL)</th><th class="num">PnL líq. %</th><th class="num">Pico %</th><th class="num">Tempo</th><th>Saída</th></tr></thead><tbody></tbody></table></div>
+    <h2>Rejeições por filtro (esta execução)</h2>
+    <div class="card"><div class="rej" id="rej"></div><div class="muted" style="margin-top:8px;font-size:12px" id="engine"></div></div>
+  </div>
+  <div>
+    <h2>Por motivo de saída</h2>
+    <div class="card"><table id="byReason"><thead><tr><th>Motivo</th><th class="num">N</th><th class="num">Acerto</th><th class="num">PnL (SOL)</th><th class="num">Média %</th></tr></thead><tbody></tbody></table></div>
+    <div class="grid2">
+      <div><h2>Por idade na entrada</h2><div class="card"><table id="byAge"><thead><tr><th>Faixa</th><th class="num">N</th><th class="num">Acerto</th><th class="num">PnL</th></tr></thead><tbody></tbody></table></div></div>
+      <div><h2>Por % da curva</h2><div class="card"><table id="byCurve"><thead><tr><th>Faixa</th><th class="num">N</th><th class="num">Acerto</th><th class="num">PnL</th></tr></thead><tbody></tbody></table></div></div>
+    </div>
+    <h2>Com × sem Jev (inclui sombra)</h2>
+    <div class="card"><table id="jevT"><thead><tr><th>Grupo</th><th class="num">N</th><th class="num">Acerto</th><th class="num">PnL (SOL)</th><th class="num">Fator</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<h2>Últimas 50 operações fechadas</h2>
+<div class="card"><table id="recent"><thead><tr><th>#</th><th>Moeda</th><th>Fechada</th><th>Motivo</th><th class="num">PnL %</th><th class="num">PnL SOL</th><th class="num">PnL US$</th><th class="num">Duração</th><th>Jev</th></tr></thead><tbody></tbody></table></div>
+
+<h2>Eventos recentes</h2>
+<div class="card"><ul class="events" id="events"></ul></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const f = (x, d = 2) => x === null || x === undefined || !isFinite(x) ? (x === Infinity ? '∞' : '–') : Number(x).toFixed(d);
+const cls = (x) => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+const ago = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm' + (s % 60) + 's' : Math.floor(s / 3600) + 'h' + Math.floor((s % 3600) / 60) + 'm'; };
+const hhmm = (t) => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const reasonPt = { take_profit: 'alvo', stop_loss: 'stop', max_hold: 'tempo máx.', trailing_stop: 'trailing', creator_sold: 'criador vendeu', migration: 'migração', shutdown: 'encerramento', daily_limit: 'limite diário' };
+
+let chart;
+function drawEquity(eq) {
+  if (typeof Chart === 'undefined') { const c = $('#eq').parentElement; if (!c.dataset.warned) { c.dataset.warned = '1'; c.innerHTML = '<div class="muted" style="padding:16px">Chart.js não carregou (CDN indisponível). A curva de patrimônio está em <code>/api/state</code> → <code>equity</code>.</div>'; } return; }
+  const labels = eq.map((e) => hhmm(e.ts));
+  const data = eq.map((e) => e.equity_sol);
+  if (!chart) {
+    chart = new Chart($('#eq'), { type: 'line', data: { labels, datasets: [{ data, borderColor: '#3987e5', borderWidth: 2, pointRadius: 0, pointHitRadius: 12, tension: 0 }] },
+      options: { animation: false, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false, callbacks: { label: (c) => ' ' + c.parsed.y.toFixed(4) + ' SOL' } } },
+        interaction: { mode: 'index', intersect: false },
+        scales: { x: { ticks: { color: '#8a897f', maxTicksLimit: 8, maxRotation: 0 }, grid: { display: false } }, y: { ticks: { color: '#8a897f', callback: (v) => v.toFixed(3) }, grid: { color: '#2b2b29' }, border: { display: false } } } } });
+  } else { chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update(); }
+}
+
+function tile(k, v, s, c) { return `<div class="tile"><div class="k">${k}</div><div class="v ${c || ''}">${v}</div><div class="s">${s || ''}</div></div>`; }
+
+function render(st) {
+  $('#ts').textContent = 'atualizado ' + hhmm(st.now) + ' · SOL US$ ' + f(st.solUsd) + ' (' + st.solSource + ')';
+  $('#mode').textContent = 'feed: ' + st.feed.mode; $('#mode').className = 'pill ' + (st.feed.mode === 'synthetic' ? 'warn' : '');
+  $('#feed').textContent = st.feed.connected ? 'WS conectado · ' + st.feed.subscribedMints + ' mints · ' + st.feed.reconnects + ' reconexões' : 'WS DESCONECTADO';
+  $('#feed').className = 'pill ' + (st.feed.connected ? 'on' : 'off');
+  $('#jev').textContent = 'Jev ' + (st.config.jevEnabled ? 'ligado' : 'desligado'); $('#jev').className = 'pill ' + (st.config.jevEnabled ? 'on' : '');
+  const r = st.risk, t = st.total, d = st.today;
+  const eqSol = r.bankrollSol + (st.open.filter(p => !p.shadow).reduce((a, p) => a + p.solSpent * (1 + (p.netPct || 0) / 100), 0));
+  const halted = r.dailyHaltedUntil && r.dailyHaltedUntil > st.now, cool = r.cooldownUntil && r.cooldownUntil > st.now;
+  $('#tiles').innerHTML = [
+    tile('Banca (caixa + posições)', f(eqSol, 4) + ' SOL', 'US$ ' + f(eqSol * st.solUsd) + ' · início ' + f(r.initialBankrollSol, 4) + ' SOL', cls(eqSol - r.initialBankrollSol)),
+    tile('PnL líquido hoje', 'US$ ' + f(r.dailyPnlUsd), halted ? 'LIMITE DIÁRIO ATINGIDO' : cool ? 'cooldown até ' + hhmm(r.cooldownUntil) : d.n + ' operações', halted ? 'neg' : cls(r.dailyPnlUsd)),
+    tile('PnL líquido total', f(t.netSol, 5) + ' SOL', 'US$ ' + f(t.netUsd) + ' · custos ' + f(t.totalCostsSol, 4) + ' SOL', cls(t.netSol)),
+    tile('Taxa de acerto', f(t.winRate * 100, 1) + '%', t.wins + ' ganhas / ' + t.losses + ' perdidas'),
+    tile('Fator de lucro', f(t.profitFactor), 'expectativa ' + f(t.expectancyPct) + '% / op.', t.profitFactor >= 1 ? 'pos' : t.n ? 'neg' : ''),
+    tile('Drawdown máximo', f(t.maxDrawdownPct, 1) + '%', 'sobre a curva de patrimônio', t.maxDrawdownPct > 10 ? 'neg' : ''),
+    tile('Operações / hora', f(t.tradesPerHour, 1), 'lucro/h US$ ' + f(t.pnlPerHourUsd), cls(t.pnlPerHourUsd)),
+    tile('Tempo médio de posição', f(t.avgDurationSec, 0) + ' s', 'posição: US$ ' + st.config.risk.positionUsd + ' = ' + f(r.positionSol, 4) + ' SOL'),
+    tile('Em observação', st.engine.watched, st.engine.tokensSeen + ' moedas vistas · ' + st.engine.tradesSeen + ' trades'),
+  ].join('');
+  try { drawEquity(st.equity); } catch (e) { console.warn('gráfico', e); }
+  $('#open tbody').innerHTML = st.open.map(p => `<tr><td>${p.id}${p.shadow ? ' <span class="pill">sombra</span>' : ''}</td><td title="${p.mint}">${p.symbol || p.mint.slice(0, 6)}</td><td class="num">${f(p.solSpent, 4)}</td><td class="num ${cls(p.netPct)}">${f(p.netPct)}%</td><td class="num">${f(p.peakNetPct)}%</td><td class="num">${ago(p.heldSec * 1000)}</td><td>${p.exitPending ? '⏳ ' + (reasonPt[p.exitPending] || p.exitPending) : ''}</td></tr>`).join('')
+    + st.pending.filter(o => o.side === 'buy').map(o => `<tr><td>–</td><td title="${o.mint}">${o.mint.slice(0, 8)}…</td><td colspan="5" class="muted">compra aguardando latência${o.shadow ? ' (sombra)' : ''}</td></tr>`).join('')
+    || '<tr><td colspan="7" class="muted">nenhuma</td></tr>';
+  const rej = Object.entries(st.engine.rejections).sort((a, b) => b[1] - a[1]);
+  $('#rej').innerHTML = rej.map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('') || '<span class="muted">nenhuma avaliação ainda</span>';
+  $('#engine').textContent = `avaliações: ${st.engine.evaluations} · entradas decididas: ${st.engine.entriesSubmitted} · canceladas (slippage): ${st.engine.cancels} · vetos Jev: ${st.engine.jevVetoes} · falhas Jev: ${st.engine.jevFailures}`;
+  const bt = (rows, withAvg) => rows.map(b => `<tr><td>${reasonPt[b.key] || b.key}</td><td class="num">${b.n}</td><td class="num">${f(b.winRate * 100, 0)}%</td><td class="num ${cls(b.netSol)}">${f(b.netSol, 5)}</td>${withAvg ? `<td class="num ${cls(b.avgPct)}">${f(b.avgPct)}%</td>` : ''}</tr>`).join('') || '<tr><td colspan="5" class="muted">sem dados</td></tr>';
+  $('#byReason tbody').innerHTML = bt(st.byReason, true); $('#byAge tbody').innerHTML = bt(st.byAge); $('#byCurve tbody').innerHTML = bt(st.byCurve);
+  $('#jevT tbody').innerHTML = st.jev.map(j => `<tr><td>${j.group}</td><td class="num">${j.s.n}</td><td class="num">${f(j.s.winRate * 100, 0)}%</td><td class="num ${cls(j.s.netSol)}">${f(j.s.netSol, 5)}</td><td class="num">${f(j.s.profitFactor)}</td></tr>`).join('');
+  $('#recent tbody').innerHTML = st.recent.map(r => `<tr><td>${r.id}</td><td title="${r.mint}">${r.symbol || r.mint.slice(0, 6)}</td><td>${hhmm(r.closed_at)}</td><td>${reasonPt[r.exit_reason] || r.exit_reason}</td><td class="num ${cls(r.pnl_net_pct)}">${f(r.pnl_net_pct)}%</td><td class="num ${cls(r.pnl_net_sol)}">${f(r.pnl_net_sol, 5)}</td><td class="num ${cls(r.pnl_net_usd)}">${f(r.pnl_net_usd)}</td><td class="num">${f(r.duration_sec, 0)}s</td><td>${r.jev ? (r.jev.category ? r.jev.category + ' (' + f(r.jev.isLikelyScam, 2) + ')' : 'erro/timeout') : '–'}</td></tr>`).join('') || '<tr><td colspan="9" class="muted">nenhuma operação fechada ainda</td></tr>';
+  $('#events').innerHTML = st.events.map(e => `<li><code>${hhmm(e.ts)}</code> <b>${e.type}</b> <span class="muted">${e.detail}</span></li>`).join('') || '<li class="muted">nenhum</li>';
+}
+async function tick() { try { const r = await fetch('/api/state'); render(await r.json()); } catch (e) { $('#ts').textContent = 'erro ao atualizar: ' + e.message; } }
+tick(); setInterval(tick, 3000);
+</script>
+</body>
+</html>

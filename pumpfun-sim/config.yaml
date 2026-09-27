@@ -1,0 +1,79 @@
+# Configuração do simulador. Todos os valores são recarregados a quente ao salvar este arquivo.
+# Percentuais são em pontos percentuais (1.25 = 1,25%). Salvar este arquivo recarrega tudo a quente.
+
+feed:
+  mode: pumpportal            # pumpportal | synthetic (gerador offline para testes)
+  url: wss://pumpportal.fun/api/data
+  maxWatched: 150             # moedas em observação simultânea
+  watchTtlSec: 900            # deixa de observar moedas mais velhas que isto (sem posição aberta)
+  heartbeatSec: 60            # reconecta se nada chegar neste intervalo
+
+curve:
+  feePct: 1.25                # taxa da curva por lado (confira em https://pump.fun/docs/fees)
+  initialVirtualSol: 30       # reservas virtuais iniciais da Pump.fun
+  initialVirtualTokens: 1073000000
+  graduationSol: 85           # SOL real acumulado para graduar (~85 SOL)
+  totalSupply: 1000000000
+
+costs:
+  executionFeePct: 0.5        # taxa de terceiros por lado (PumpPortal); pode ser 0
+  networkFeeSol: 0.0005       # prioridade/rede por transação
+  latencyMs: 1500             # decisão -> execução
+  maxSlippagePct: 10          # cancela a COMPRA se o preço subir mais que isto até a execução
+
+entry:
+  minAgeSec: 20
+  maxAgeSec: 600
+  minCurvePct: 8
+  maxCurvePct: 60
+  minUniqueBuyers60s: 12
+  minBuySellRatio: 1.5
+  maxTop10Pct: 35
+  creatorSoldBlocks: true
+  blockStrongBundle: true
+  maxOpenPositions: 4
+
+exit:
+  takeProfitPct: 15           # lucro LÍQUIDO (depois de todas as taxas)
+  stopLossPct: 8
+  maxHoldSec: 180
+  trailingPct: null           # ex.: 6 para ativar trailing stop de 6% a partir do pico
+  migrationPenaltyPct: 5
+
+risk:
+  bankrollUsd: 100
+  positionUsd: 8
+  dailyLossLimitUsd: 15
+  consecutiveStopsForCooldown: 3
+  cooldownMin: 10
+  solPriceFallbackUsd: 150
+  solPriceCacheMin: 5
+  timezone: America/Sao_Paulo
+
+jev:
+  enabled: auto               # auto = ligado se TYPESAFE_API_KEY existir | true | false
+  model: jev-latest
+  timeoutMs: 800
+  scamConfidence: 0.7
+  metadataTimeoutMs: 1500
+  shadow: true                # simula também as entradas vetadas, sem afetar a banca
+
+db:
+  path: data/sim.db
+  tradesRetentionDays: 7
+  equityIntervalSec: 60
+
+dashboard:
+  port: 3000
+
+report:
+  dailyAt: "23:55"            # horário local (risk.timezone) do relatório diário
+  dir: reports
+
+backtest:
+  grid:
+    takeProfitPct: [10, 15, 20, 30]
+    stopLossPct: [5, 8, 12]
+    maxHoldSec: [90, 180, 300]
+    minUniqueBuyers60s: [8, 12, 18]
+    minCurvePct: [5, 8, 15]

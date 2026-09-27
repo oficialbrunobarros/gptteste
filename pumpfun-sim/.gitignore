@@ -1,0 +1,8 @@
+node_modules/
+data/*.db
+data/*.db-*
+reports/*.md
+!reports/.gitkeep
+.env
+logs/
+!reports/exemplo-feed-sintetico.md
